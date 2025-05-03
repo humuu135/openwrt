@@ -1,0 +1,202 @@
+Index: linux-6.6.73/net/netfilter/nf_nat_core.c
+===================================================================
+--- linux-6.6.73.orig/net/netfilter/nf_nat_core.c
++++ linux-6.6.73/net/netfilter/nf_nat_core.c
+@@ -54,6 +54,11 @@ struct nat_net {
+ 	struct nf_nat_hooks_net nat_proto_net[NFPROTO_NUMPROTO];
+ };
+ 
++int psid __read_mostly;
++int psid_mask __read_mostly;
++unsigned int psid_ip_min __read_mostly;
++unsigned int psid_ip_max __read_mostly;
++
+ #ifdef CONFIG_XFRM
+ static void nf_nat_ipv4_decode_session(struct sk_buff *skb,
+ 				       const struct nf_conn *ct,
+@@ -412,15 +417,20 @@ static bool nf_nat_inet_in_range(const s
+ /* Is the manipable part of the tuple between min and max incl? */
+ static bool l4proto_in_range(const struct nf_conntrack_tuple *tuple,
+ 			     enum nf_nat_manip_type maniptype,
+-			     const union nf_conntrack_man_proto *min,
+-			     const union nf_conntrack_man_proto *max)
++			     const struct nf_nat_range2 *range)
+ {
++	const union nf_conntrack_man_proto *min = &range->min_proto;
++	const union nf_conntrack_man_proto *max = &range->max_proto;
++	bool use_psid = tuple->src.l3num == NFPROTO_IPV4 &&
++					ntohl(range->min_addr.ip) == psid_ip_min &&
++					ntohl(range->max_addr.ip) == psid_ip_max;
+ 	__be16 port;
+ 
+ 	switch (tuple->dst.protonum) {
+ 	case IPPROTO_ICMP:
+ 	case IPPROTO_ICMPV6:
+-		return ntohs(tuple->src.u.icmp.id) >= ntohs(min->icmp.id) &&
++		return (!use_psid || (ntohs(tuple->src.u.icmp.id) & psid_mask) == psid) &&
++		       ntohs(tuple->src.u.icmp.id) >= ntohs(min->icmp.id) &&
+ 		       ntohs(tuple->src.u.icmp.id) <= ntohs(max->icmp.id);
+ 	case IPPROTO_GRE: /* all fall though */
+ 	case IPPROTO_TCP:
+@@ -428,13 +438,16 @@ static bool l4proto_in_range(const struc
+ 	case IPPROTO_UDPLITE:
+ 	case IPPROTO_DCCP:
+ 	case IPPROTO_SCTP:
+-		if (maniptype == NF_NAT_MANIP_SRC)
++		if (maniptype == NF_NAT_MANIP_SRC) {
+ 			port = tuple->src.u.all;
+-		else
++			return (!use_psid || (ntohs(port) & psid_mask) == psid) &&
++			       ntohs(port) >= ntohs(min->all) &&
++			       ntohs(port) <= ntohs(max->all);
++		} else {
+ 			port = tuple->dst.u.all;
+-
+-		return ntohs(port) >= ntohs(min->all) &&
+-		       ntohs(port) <= ntohs(max->all);
++			return ntohs(port) >= ntohs(min->all) &&
++			       ntohs(port) <= ntohs(max->all);
++		}
+ 	default:
+ 		return true;
+ 	}
+@@ -456,8 +469,7 @@ static int nf_in_range(const struct nf_c
+ 	if (!(range->flags & NF_NAT_RANGE_PROTO_SPECIFIED))
+ 		return 1;
+ 
+-	return l4proto_in_range(tuple, NF_NAT_MANIP_SRC,
+-				&range->min_proto, &range->max_proto);
++	return l4proto_in_range(tuple, NF_NAT_MANIP_SRC, range);
+ }
+ 
+ static inline int
+@@ -586,6 +598,8 @@ static void nf_nat_l4proto_unique_tuple(
+ 	unsigned int range_size, min, max, i, attempts;
+ 	__be16 *keyptr;
+ 	u16 off;
++	u16 port;
++	bool use_psid;
+ 
+ 	switch (tuple->dst.protonum) {
+ 	case IPPROTO_ICMP:
+@@ -681,10 +695,20 @@ find_free_id:
+ 	 * one and try again, with ever smaller search window.
+ 	 */
+ another_round:
+-	for (i = 0; i < attempts; i++, off++) {
+-		*keyptr = htons(min + off % range_size);
+-		if (!nf_nat_used_tuple_harder(tuple, ct, attempts - i))
+-			return;
++	use_psid = (tuple->dst.protonum == IPPROTO_ICMP ||
++			    maniptype == NF_NAT_MANIP_SRC) &&
++			   tuple->src.l3num == NFPROTO_IPV4 &&
++			   ntohl(range->min_addr.ip) == psid_ip_min &&
++			   ntohl(range->max_addr.ip) == psid_ip_max;
++	off = off % range_size;
++	for (i = 0; i < attempts && off < range_size * 2; off++) {
++		port = min + off % range_size;
++		if (!use_psid || (port & psid_mask) == psid) {
++			*keyptr = htons(port);
++			if (!nf_nat_used_tuple_harder(tuple, ct, attempts - i))
++				return;
++			i++;
++		}
+ 	}
+ 
+ 	if (attempts >= range_size || attempts < 16)
+@@ -748,9 +772,7 @@ get_unique_tuple(struct nf_conntrack_tup
+ 	if (!(range->flags & NF_NAT_RANGE_PROTO_RANDOM_ALL)) {
+ 		if (range->flags & NF_NAT_RANGE_PROTO_SPECIFIED) {
+ 			if (!(range->flags & NF_NAT_RANGE_PROTO_OFFSET) &&
+-			    l4proto_in_range(tuple, maniptype,
+-					     &range->min_proto,
+-					     &range->max_proto) &&
++			    l4proto_in_range(tuple, maniptype, range) &&
+ 			    (range->min_proto.all == range->max_proto.all ||
+ 			     !nf_nat_used_tuple(tuple, ct)))
+ 				return;
+@@ -1325,6 +1347,63 @@ static const struct nf_nat_hook nat_hook
+ 	.remove_nat_bysrc	= nf_nat_cleanup_conntrack,
+ };
+ 
++static struct ctl_table_header *nf_nat_sysctl_header;
++
++static struct ctl_table nf_nat_sysctl_table[] = {
++	{
++		.procname       = "nf_nat_psid",
++		.data           = &psid,
++		.maxlen         = sizeof(int),
++		.mode           = 0644,
++		.proc_handler   = proc_dointvec,
++	},
++	{
++		.procname       = "nf_nat_psid_mask",
++		.data           = &psid_mask,
++		.maxlen         = sizeof(int),
++		.mode           = 0644,
++		.proc_handler   = proc_dointvec,
++	},
++	{
++		.procname       = "nf_nat_psid_ip_min",
++		.data           = &psid_ip_min,
++		.maxlen         = sizeof(unsigned int),
++		.mode           = 0644,
++		.proc_handler   = proc_douintvec,
++	},
++	{
++		.procname       = "nf_nat_psid_ip_max",
++		.data           = &psid_ip_max,
++		.maxlen         = sizeof(unsigned int),
++		.mode           = 0644,
++		.proc_handler   = proc_douintvec,
++	},
++	{ }
++};
++
++static void nf_nat_sysctl_register(void)
++{
++	static int initialized;
++
++	if (initialized == 1)
++		return;
++
++	nf_nat_sysctl_header = register_sysctl("nf_nat", nf_nat_sysctl_table);
++
++	psid = 0;
++	psid_mask = 0;
++	psid_ip_min = 0xffffffff;
++	psid_ip_max = 0;
++
++	initialized = 1;
++}
++
++static void nf_nat_sysctl_unregister(void)
++{
++	if (nf_nat_sysctl_header)
++		unregister_sysctl_table(nf_nat_sysctl_header);
++}
++
+ static int __init nf_nat_init(void)
+ {
+ 	int ret, i;
+@@ -1352,8 +1431,11 @@ static int __init nf_nat_init(void)
+ 	WARN_ON(nf_nat_hook != NULL);
+ 	RCU_INIT_POINTER(nf_nat_hook, &nat_hook);
+ 
++	nf_nat_sysctl_register();
++
+ 	ret = register_nf_nat_bpf();
+ 	if (ret < 0) {
++		nf_nat_sysctl_unregister();
+ 		RCU_INIT_POINTER(nf_nat_hook, NULL);
+ 		nf_ct_helper_expectfn_unregister(&follow_master_nat);
+ 		synchronize_net();
+@@ -1370,6 +1452,8 @@ static void __exit nf_nat_cleanup(void)
+ 
+ 	nf_ct_iterate_destroy(nf_nat_proto_clean, &clean);
+ 
++	nf_nat_sysctl_unregister();
++
+ 	nf_ct_helper_expectfn_unregister(&follow_master_nat);
+ 	RCU_INIT_POINTER(nf_nat_hook, NULL);
+ 

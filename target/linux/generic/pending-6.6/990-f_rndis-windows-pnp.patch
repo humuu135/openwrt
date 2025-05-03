@@ -1,0 +1,30 @@
+Index: linux-6.6.73/drivers/usb/gadget/function/f_rndis.c
+===================================================================
+--- linux-6.6.73.orig/drivers/usb/gadget/function/f_rndis.c
++++ linux-6.6.73/drivers/usb/gadget/function/f_rndis.c
+@@ -102,9 +102,9 @@ static struct usb_interface_descriptor r
+ 	/* .bInterfaceNumber = DYNAMIC */
+ 	/* status endpoint is optional; this could be patched later */
+ 	.bNumEndpoints =	1,
+-	.bInterfaceClass =	USB_CLASS_COMM,
+-	.bInterfaceSubClass =   USB_CDC_SUBCLASS_ACM,
+-	.bInterfaceProtocol =   USB_CDC_ACM_PROTO_VENDOR,
++	.bInterfaceClass =	0xe0,
++	.bInterfaceSubClass =   0x01,
++	.bInterfaceProtocol =   0x03,
+ 	/* .iInterface = DYNAMIC */
+ };
+ 
+@@ -163,9 +163,9 @@ rndis_iad_descriptor = {
+ 
+ 	.bFirstInterface =	0, /* XXX, hardcoded */
+ 	.bInterfaceCount = 	2,	// control + data
+-	.bFunctionClass =	USB_CLASS_COMM,
+-	.bFunctionSubClass =	USB_CDC_SUBCLASS_ETHERNET,
+-	.bFunctionProtocol =	USB_CDC_PROTO_NONE,
++	.bFunctionClass =	0xe0,
++	.bFunctionSubClass =	0x01,
++	.bFunctionProtocol =	0x03,
+ 	/* .iFunction = DYNAMIC */
+ };
+ 

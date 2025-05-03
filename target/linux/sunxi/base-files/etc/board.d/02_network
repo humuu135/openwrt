@@ -23,6 +23,9 @@ sunxi_setup_interfaces()
 	xunlong,orangepi-r1)
 		ucidef_set_interfaces_lan_wan "eth0" "eth1"
 		;;
+	friendlyarm,nanopi-neo-core)
+		ucidef_set_interface_lan "eth0 usb0"
+		;;
 	*)
 		ucidef_set_interface_lan "eth0"
 		;;
@@ -50,12 +53,27 @@ nanopi_r1_get_mac()
 	echo "$address"
 }
 
+nanopi_neo_core_get_mac()
+{
+	local interface=$1
+	local address
+
+	address=$(macaddr_generate_from_mmc_cid mmcblk1)
+	if [ "$interface" = "host" ]; then
+		address=$(macaddr_add "$address" 1)
+	fi
+
+	echo "$address"
+}
+
 sunxi_setup_macs()
 {
 	local board="$1"
 	local lan_mac=""
 	local wan_mac=""
 	local label_mac=""
+	local dev_mac=""
+	local host_mac=""
 
 	case "$board" in
 	friendlyarm,nanopi-r1)
@@ -64,6 +82,11 @@ sunxi_setup_macs()
 		;;
 	friendlyarm,nanopi-r1s-h5)
 		lan_mac=$(get_mac_binary "/sys/bus/i2c/devices/0-0051/eeprom" 0xfa)
+		;;
+	friendlyarm,nanopi-neo-core)
+		dev_mac=$(nanopi_neo_core_get_mac dev)
+		host_mac=$(nanopi_neo_core_get_mac host)
+		echo "g_ether dev_addr=${dev_mac} host_addr=${host_mac}" > /etc/modules.d/59-g_ether
 		;;
 	esac
 

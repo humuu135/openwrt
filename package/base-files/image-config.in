@@ -282,3 +282,10 @@ menuconfig PER_FEED_REPO
 		for the core packages and each enabled feed.
 
 source "tmp/.config-feeds.in"
+
+config PACKING_TARGET_PACKAGES_TO_OPT
+	bool "packing target packages to /opt/packages" if IMAGEOPT
+	default n
+	help
+		packing target packages to /opt/packages
+

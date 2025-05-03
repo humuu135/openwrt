@@ -1,0 +1,26 @@
+Index: linux-6.6.73/drivers/usb/host/ehci-platform.c
+===================================================================
+--- linux-6.6.73.orig/drivers/usb/host/ehci-platform.c
++++ linux-6.6.73/drivers/usb/host/ehci-platform.c
+@@ -515,7 +515,7 @@ static struct platform_driver ehci_platf
+ 		.pm	= pm_ptr(&ehci_platform_pm_ops),
+ 		.of_match_table = vt8500_ehci_ids,
+ 		.acpi_match_table = ACPI_PTR(ehci_acpi_match),
+-		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
++		.probe_type = PROBE_FORCE_SYNCHRONOUS,
+ 	}
+ };
+ 
+Index: linux-6.6.73/drivers/usb/host/ohci-platform.c
+===================================================================
+--- linux-6.6.73.orig/drivers/usb/host/ohci-platform.c
++++ linux-6.6.73/drivers/usb/host/ohci-platform.c
+@@ -352,7 +352,7 @@ static struct platform_driver ohci_platf
+ 		.pm	= &ohci_platform_pm_ops,
+ #endif
+ 		.of_match_table = ohci_platform_ids,
+-		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
++		.probe_type = PROBE_FORCE_SYNCHRONOUS,
+ 	}
+ };
+ 

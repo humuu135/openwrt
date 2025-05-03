@@ -121,6 +121,27 @@ else
 	done || true
 endif
 
+ifeq ($(CONFIG_PACKING_TARGET_PACKAGES_TO_OPT),y)
+	mkdir -p $(TARGET_DIR)/opt
+	$(CP) $(PACKAGE_DIR) $(TARGET_DIR)/opt/packages
+	rmdir $(TARGET_DIR)/opt/packages/tmp || true
+	@for d in $(PACKAGE_SUBDIRS); do ( \
+		[ -d $$d ] && [ -x $(TOPDIR)/copy_additional_packages.sh ] && \
+		$(TOPDIR)/copy_additional_packages.sh "$$d" "$(TARGET_DIR)/opt/packages" || true; \
+	); done
+	$(MAKE) "PACKAGE_SUBDIRS=$(TARGET_DIR)/opt/packages" package/index
+ifneq ($(CONFIG_USE_APK),)
+	sed -i -e '/target/d' $(TARGET_DIR)/etc/apk/repositories.d/distfeeds.list
+	echo 'file:///opt/packages/packages.adb' >> $(TARGET_DIR)/etc/apk/repositories.d/distfeeds.list
+	cp "$(TOPDIR)/public-key.pem" "$(TARGET_DIR)/etc/apk/keys/opt-packages-public-key.pem"
+else
+	sed -i -e '/openwrt_core/d' $(TARGET_DIR)/etc/opkg/distfeeds.conf
+	sed -i -e '/openwrt_kmods/d' $(TARGET_DIR)/etc/opkg/distfeeds.conf
+	echo 'src/gz local_packages file:///opt/packages' >> $(TARGET_DIR)/etc/opkg/distfeeds.conf
+	cp "$(TOPDIR)/key-build.pub" "$(TARGET_DIR)/etc/opkg/keys/$(shell $(STAGING_DIR_HOST)/bin/usign -F -p "$(TOPDIR)/key-build.pub")"
+endif
+endif
+
 	$(CP) $(TARGET_DIR) $(TARGET_DIR_ORIG)
 
 	$(call prepare_rootfs,$(TARGET_DIR),$(TOPDIR)/files)

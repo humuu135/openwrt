@@ -37,6 +37,14 @@ define Device/friendlyarm_nanopi-neo
 endef
 TARGET_DEVICES += friendlyarm_nanopi-neo
 
+define Device/friendlyarm_nanopi-neo-core
+  DEVICE_VENDOR := FriendlyARM
+  DEVICE_MODEL := NanoPi NEO Core
+  DEVICE_PACKAGES := kmod-usb-gadget-eth
+  SOC := sun8i-h3
+endef
+TARGET_DEVICES += friendlyarm_nanopi-neo-core
+
 define Device/friendlyarm_nanopi-neo-air
   DEVICE_VENDOR := FriendlyARM
   DEVICE_MODEL := NanoPi NEO Air

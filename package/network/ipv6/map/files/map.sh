@@ -140,19 +140,21 @@ proto_map_setup() {
 	      json_add_string snat_ip $(eval "echo \$RULE_${k}_IPV4ADDR")
 	    json_close_object
 	  else
-	    for portset in $(eval "echo \$RULE_${k}_PORTSETS"); do
-              for proto in icmp tcp udp; do
-	        json_add_object ""
-	          json_add_string type nat
-	          json_add_string target SNAT
-	          json_add_string family inet
-	          json_add_string proto "$proto"
-                  json_add_boolean connlimit_ports 1
-                  json_add_string snat_ip $(eval "echo \$RULE_${k}_IPV4ADDR")
-                  json_add_string snat_port "$portset"
-	        json_close_object
-              done
-	    done
+	    /sbin/sysctl -w nf_nat.nf_nat_psid=$(eval "echo \$RULE_${k}_PSID")
+	    /sbin/sysctl -w nf_nat.nf_nat_psid_mask=$(eval "echo \$RULE_${k}_PSID_MASK")
+	    /sbin/sysctl -w nf_nat.nf_nat_psid_ip_min=$(eval "echo \$RULE_${k}_PSID_IP")
+	    /sbin/sysctl -w nf_nat.nf_nat_psid_ip_max=$(eval "echo \$RULE_${k}_PSID_IP")
+	    local skipsnat=$(eval "/sbin/uci get map.@map[0].skipsnat") >/dev/null 2>&1 || skipsnat=
+	    if [ -z "$skipsnat" -o "$skipsnat" = "0" -o "$skipsnat" = "off" -o "$skipsnat" = "false" -o "$skipsnat" = "no" -o "$skipsnat" = "disabled" ]; then
+	      json_add_object ""
+			json_add_string type nat
+			json_add_string target SNAT
+			json_add_string family inet
+			json_add_string proto "icmp tcp udp"
+			json_add_string snat_ip $(eval "echo \$RULE_${k}_IPV4ADDR")
+			json_add_string snat_port $(eval "echo \${RULE_${k}_PORTSTART}-65535")
+	      json_close_object
+	    fi
 	  fi
 	  if [ "$maptype" = "map-t" ]; then
 		[ -z "$zone" ] && zone=$(fw3 -q network $iface 2>/dev/null)

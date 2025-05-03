@@ -388,6 +388,7 @@ int main(int argc, char *argv[])
 		if (ipv4addr.s_addr) {
 			printf("RULE_%d_IPV4ADDR=%s\n", rulecnt, ipv4addrbuf);
 			printf("RULE_%d_ADDR4LEN=%d\n", rulecnt, addr4len);
+			printf("RULE_%d_PSID_IP=0x%08x\n", rulecnt, ntohl(ipv4addr.s_addr));
 		}
 
 
@@ -404,6 +405,11 @@ int main(int argc, char *argv[])
 					printf("%d-%d ", start, end);
 			}
 			printf("'\n");
+			printf("RULE_%d_PSID=0x%04x\n", rulecnt, psid >> offset);
+			printf("RULE_%d_PSID_MASK=0x%04x\n", rulecnt, (0xffff >> offset) & (0xffff << (16 - offset - psidlen)));
+			int portstart = ((offset ? 1 : 0) << (16 - offset));
+			if (portstart == 0) portstart = 1;
+			printf("RULE_%d_PORTSTART=%d\n", rulecnt, portstart);
 		}
 
 		if (dmr)

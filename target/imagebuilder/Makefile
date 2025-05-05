@@ -141,6 +141,15 @@ endif
 	$(CP) $(TOPDIR)/staging_dir/host/lib/libfakeroot* $(PKG_BUILD_DIR)/staging_dir/host/lib
 	STRIP=$(STAGING_DIR_HOST)/bin/sstrip $(SCRIPT_DIR)/rstrip.sh $(PKG_BUILD_DIR)/staging_dir/host/bin/
 
+ifeq ($(CONFIG_PACKING_TARGET_PACKAGES_TO_OPT),y)
+	mkdir -p $(PKG_BUILD_DIR)/files/opt
+	$(CP) $(TARGET_DIR)/opt/packages $(PKG_BUILD_DIR)/files/opt
+	mkdir -p $(PKG_BUILD_DIR)/files/etc/opkg/keys
+	$(CP) "$(TOPDIR)/key-build.pub" "$(PKG_BUILD_DIR)/files/etc/opkg/keys/$(shell $(STAGING_DIR_HOST)/bin/usign -F -p "$(TOPDIR)/key-build.pub")"
+	$(CP) "$(TARGET_DIR)/etc/opkg/distfeeds.conf" "$(PKG_BUILD_DIR)/files/etc/opkg/"
+	(cd $(PKG_BUILD_DIR)/packages; ln -s ../files/opt/packages/*.ipk .)
+endif
+
 	(cd $(BUILD_DIR); \
 		tar -I '$(STAGING_DIR_HOST)/bin/zstd -T0 --ultra -20' -cf $@ $(IB_NAME) \
 		--mtime="$(shell date --date=@$(SOURCE_DATE_EPOCH))"; \

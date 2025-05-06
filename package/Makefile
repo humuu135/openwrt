@@ -123,6 +123,7 @@ ifeq ($(CONFIG_PACKING_TARGET_PACKAGES_TO_OPT),y)
 		$(TOPDIR)/copy_additional_packages.sh "$$d" "$(TARGET_DIR)/opt/packages" || true; \
 	); done
 	$(MAKE) "PACKAGE_SUBDIRS=$(TARGET_DIR)/opt/packages" package/index
+	sed -i -e '/openwrt_core/d' $(TARGET_DIR)/etc/opkg/distfeeds.conf
 	sed -i -e '/openwrt_kmods/d' $(TARGET_DIR)/etc/opkg/distfeeds.conf
 	echo 'src/gz local_packages file:///opt/packages' >> $(TARGET_DIR)/etc/opkg/distfeeds.conf
 	cp "$(TOPDIR)/key-build.pub" "$(TARGET_DIR)/etc/opkg/keys/$(shell $(STAGING_DIR_HOST)/bin/usign -F -p "$(TOPDIR)/key-build.pub")"

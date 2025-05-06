@@ -148,6 +148,8 @@ ifeq ($(CONFIG_PACKING_TARGET_PACKAGES_TO_OPT),y)
 	$(CP) "$(TOPDIR)/key-build.pub" "$(PKG_BUILD_DIR)/files/etc/opkg/keys/$(shell $(STAGING_DIR_HOST)/bin/usign -F -p "$(TOPDIR)/key-build.pub")"
 	$(CP) "$(TARGET_DIR)/etc/opkg/distfeeds.conf" "$(PKG_BUILD_DIR)/files/etc/opkg/"
 	(cd $(PKG_BUILD_DIR)/packages; ln -s ../files/opt/packages/*.ipk .)
+	sed -i -e '/openwrt_core/d' $(PKG_BUILD_DIR)/repositories.conf
+	sed -i -e '/openwrt_kmods/d' $(PKG_BUILD_DIR)/repositories.conf
 endif
 
 	(cd $(BUILD_DIR); \

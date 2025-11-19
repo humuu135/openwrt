@@ -1,0 +1,51 @@
+Index: dnsmasq-2.90/src/network.c
+===================================================================
+--- dnsmasq-2.90.orig/src/network.c
++++ dnsmasq-2.90/src/network.c
+@@ -1687,6 +1687,7 @@ void check_servers(int no_loop_check)
+ 
+     }
+   
++#if 0
+   for (count = 0, serv = daemon->local_domains; serv; serv = serv->next)
+     {
+        if (++count > SERVERS_LOGGED)
+@@ -1708,6 +1709,26 @@ void check_servers(int no_loop_check)
+     my_syslog(LOG_INFO, _("using %d more local addresses"), locals - LOCALS_LOGGED);
+   if (count - 1 > SERVERS_LOGGED)
+     my_syslog(LOG_INFO, _("using %d more nameservers"), count - SERVERS_LOGGED - 1);
++#else
++  for (count = 0, serv = daemon->local_domains; serv; serv = serv->next)
++    {
++       if ((serv->flags & SERV_LITERAL_ADDRESS) &&
++	   !(serv->flags & (SERV_6ADDR | SERV_4ADDR | SERV_ALL_ZEROS)) &&
++	   strlen(serv->domain))
++	 {
++           ++locals;
++	 }
++       else
++	 {
++           ++count;
++	 }
++    }
++  
++  if (locals > 0)
++    my_syslog(LOG_INFO, _("using %d local addresses"), locals);
++  if (count > 0)
++    my_syslog(LOG_INFO, _("using %d nameservers"), count);
++#endif
+ 
+   /* Remove unused sfds */
+   for (sfd = daemon->sfds, up = &daemon->sfds; sfd; sfd = tmp)
+Index: dnsmasq-2.90/src/option.c
+===================================================================
+--- dnsmasq-2.90.orig/src/option.c
++++ dnsmasq-2.90/src/option.c
+@@ -5757,7 +5757,6 @@ void read_servers_file(void)
+   read_file(daemon->servers_file, f, LOPT_REV_SERV, 0);
+   fclose(f);
+   cleanup_servers();
+-  check_servers(0);
+ }
+  
+ 

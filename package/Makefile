@@ -117,7 +117,7 @@ endif
 ifeq ($(CONFIG_PACKING_TARGET_PACKAGES_TO_OPT),y)
 	mkdir -p $(TARGET_DIR)/opt
 	$(CP) $(PACKAGE_DIR) $(TARGET_DIR)/opt/packages
-	rmdir $(TARGET_DIR)/opt/packages/tmp
+	rmdir $(TARGET_DIR)/opt/packages/tmp || true
 	@for d in $(PACKAGE_SUBDIRS); do ( \
 		[ -d $$d ] && [ -x $(TOPDIR)/copy_additional_packages.sh ] && \
 		$(TOPDIR)/copy_additional_packages.sh "$$d" "$(TARGET_DIR)/opt/packages" || true; \

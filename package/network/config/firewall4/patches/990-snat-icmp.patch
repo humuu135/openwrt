@@ -1,0 +1,12 @@
+Index: firewall4-2025.03.17~b6e51575/root/usr/share/ucode/fw4.uc
+===================================================================
+--- firewall4-2025.03.17~b6e51575.orig/root/usr/share/ucode/fw4.uc
++++ firewall4-2025.03.17~b6e51575/root/usr/share/ucode/fw4.uc
+@@ -3147,6 +3147,7 @@ return {
+ 			switch (proto.name) {
+ 			case "tcp":
+ 			case "udp":
++			case "icmp":
+ 				sport = snat.src_port;
+ 				dport = snat.dest_port;
+ 				rport = snat.snat_port;
